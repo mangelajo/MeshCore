@@ -61,11 +61,25 @@ struct RepeaterStats {
   #define MAX_CLIENTS           32
 #endif
 
+#ifndef MAX_TRUSTED_CLOCK_KEYS
+  #define MAX_TRUSTED_CLOCK_KEYS  4
+#endif
+
+#define TRUSTED_CLOCKS_FILE     "/trusted_clocks"
+
 struct NeighbourInfo {
   mesh::Identity id;
   uint32_t advert_timestamp;
   uint32_t heard_timestamp;
   int8_t snr; // multiplied by 4, user should divide to get float value
+};
+
+#define TRUSTED_CLOCK_NAME_LEN  16   // includes null terminator
+
+struct TrustedClockSource {
+  uint8_t pub_key[PUB_KEY_SIZE];
+  uint32_t last_timestamp;   // most recent advert timestamp accepted from this key (replay guard)
+  char name[TRUSTED_CLOCK_NAME_LEN];   // optional human-readable label, "" if unset
 };
 
 #ifndef FIRMWARE_BUILD_DATE
@@ -106,6 +120,8 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
 #if MAX_NEIGHBOURS
   NeighbourInfo neighbours[MAX_NEIGHBOURS];
 #endif
+  TrustedClockSource trusted_clocks[MAX_TRUSTED_CLOCK_KEYS];
+  uint8_t num_trusted_clocks;
   CayenneLPP telemetry;
   unsigned long set_radio_at, revert_radio_at;
   float pending_freq;
@@ -120,6 +136,16 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
 #endif
 
   void putNeighbour(const mesh::Identity& id, uint32_t timestamp, float snr);
+
+  TrustedClockSource* findTrustedClock(const uint8_t* pub_key);
+  TrustedClockSource* findTrustedClockByName(const char* name);
+  bool addTrustedClock(const uint8_t* pub_key, const char* name);
+  bool removeTrustedClock(const uint8_t* pub_key);
+  void loadTrustedClocks();
+  void saveTrustedClocks();
+  void formatTrustedClocksReply(char* reply);
+  void maybeStepClockFromTrustedAdvert(const mesh::Identity& id, uint32_t advert_timestamp);
+
   uint8_t handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data, bool is_flood);
   uint8_t handleAnonRegionsReq(const mesh::Identity& sender, uint32_t sender_timestamp, const uint8_t* data);
   uint8_t handleAnonOwnerReq(const mesh::Identity& sender, uint32_t sender_timestamp, const uint8_t* data);
