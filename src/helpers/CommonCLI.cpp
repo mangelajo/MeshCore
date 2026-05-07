@@ -88,7 +88,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
     file.read((uint8_t *)&_prefs->adc_multiplier, sizeof(_prefs->adc_multiplier));                 // 166
     file.read((uint8_t *)_prefs->owner_info, sizeof(_prefs->owner_info));                          // 170
     file.read((uint8_t *)&_prefs->rx_boosted_gain, sizeof(_prefs->rx_boosted_gain));              // 290
-    file.read((uint8_t *)&_prefs->clock_sync_threshold, sizeof(_prefs->clock_sync_threshold));    // 291
+    file.read((uint8_t *)&_prefs->clock_trust_thresh, sizeof(_prefs->clock_trust_thresh));        // 291
     // next: 293
 
     // sanitise bad pref values
@@ -119,7 +119,7 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {
 
     // sanitise settings
     _prefs->rx_boosted_gain = constrain(_prefs->rx_boosted_gain, 0, 1); // boolean
-    _prefs->clock_sync_threshold = constrain(_prefs->clock_sync_threshold, 0, 3600);
+    _prefs->clock_trust_thresh = constrain(_prefs->clock_trust_thresh, 0, 3600);
 
     file.close();
   }
@@ -181,7 +181,7 @@ void CommonCLI::savePrefs(FILESYSTEM* fs) {
     file.write((uint8_t *)&_prefs->adc_multiplier, sizeof(_prefs->adc_multiplier));                 // 166
     file.write((uint8_t *)_prefs->owner_info, sizeof(_prefs->owner_info));                          // 170
     file.write((uint8_t *)&_prefs->rx_boosted_gain, sizeof(_prefs->rx_boosted_gain));              // 290
-    file.write((uint8_t *)&_prefs->clock_sync_threshold, sizeof(_prefs->clock_sync_threshold));    // 291
+    file.write((uint8_t *)&_prefs->clock_trust_thresh, sizeof(_prefs->clock_trust_thresh));        // 291
     // next: 293
 
     file.close();
@@ -715,12 +715,12 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
     savePrefs();
     strcpy(reply, "OK");
 #endif
-  } else if (memcmp(config, "clock.sync.thresh ", 18) == 0) {
-    int secs = (int)_atoi(&config[18]);
+  } else if (memcmp(config, "clock.trust.thresh ", 19) == 0) {
+    int secs = (int)_atoi(&config[19]);
     if (secs < 0 || secs > 3600) {
       strcpy(reply, "Error: must be 0-3600 seconds (0 disables)");
     } else {
-      _prefs->clock_sync_threshold = (uint16_t)secs;
+      _prefs->clock_trust_thresh = (uint16_t)secs;
       savePrefs();
       strcpy(reply, "OK");
     }
@@ -864,8 +864,8 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, char* command, char* rep
   #else
       strcpy(reply, "ERROR: unsupported");
   #endif
-  } else if (memcmp(config, "clock.sync.thresh", 17) == 0) {
-    sprintf(reply, "> %d", (uint32_t)_prefs->clock_sync_threshold);
+  } else if (memcmp(config, "clock.trust.thresh", 18) == 0) {
+    sprintf(reply, "> %d", (uint32_t)_prefs->clock_trust_thresh);
   } else if (memcmp(config, "adc.multiplier", 14) == 0) {
     float adc_mult = _board->getAdcMultiplier();
     if (adc_mult == 0.0f) {

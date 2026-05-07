@@ -67,6 +67,10 @@ struct RepeaterStats {
 
 #define TRUSTED_CLOCKS_FILE     "/trusted_clocks"
 
+// Minimum CLI reply buffer size that all callers of MyMesh::handleCommand must allocate.
+// Used by format helpers as a conservative bound for snprintf-style writes.
+#define MIN_CLI_REPLY_LEN       160
+
 struct NeighbourInfo {
   mesh::Identity id;
   uint32_t advert_timestamp;
@@ -80,6 +84,15 @@ struct TrustedClockSource {
   uint8_t pub_key[PUB_KEY_SIZE];
   uint32_t last_timestamp;   // most recent advert timestamp accepted from this key (replay guard)
   char name[TRUSTED_CLOCK_NAME_LEN];   // optional human-readable label, "" if unset
+};
+
+#define MAX_SYNC_EVENTS  2
+
+struct ClockSyncEvent {
+  uint8_t  pub_key_prefix[8];   // first 8 bytes of source pubkey, for display
+  char     name[TRUSTED_CLOCK_NAME_LEN];
+  uint32_t local_before;        // local RTC reading immediately before the step
+  uint32_t advert_timestamp;    // timestamp we stepped to
 };
 
 #ifndef FIRMWARE_BUILD_DATE
@@ -122,6 +135,9 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
 #endif
   TrustedClockSource trusted_clocks[MAX_TRUSTED_CLOCK_KEYS];
   uint8_t num_trusted_clocks;
+  ClockSyncEvent sync_events[MAX_SYNC_EVENTS];   // RAM-only ring of recent successful clock steps
+  uint8_t num_sync_events;
+  uint8_t next_sync_event_idx;
   CayenneLPP telemetry;
   unsigned long set_radio_at, revert_radio_at;
   float pending_freq;
@@ -143,7 +159,8 @@ class MyMesh : public mesh::Mesh, public CommonCLICallbacks {
   bool removeTrustedClock(const uint8_t* pub_key);
   void loadTrustedClocks();
   void saveTrustedClocks();
-  void formatTrustedClocksReply(char* reply);
+  void formatTrustedClocksReply(char* reply, size_t reply_size);
+  void formatSyncEventsReply(char* reply, size_t reply_size);
   void maybeStepClockFromTrustedAdvert(const mesh::Identity& id, uint32_t advert_timestamp);
 
   uint8_t handleLoginReq(const mesh::Identity& sender, const uint8_t* secret, uint32_t sender_timestamp, const uint8_t* data, bool is_flood);
